@@ -1,0 +1,9 @@
+README.md
+setup.py
+networkdiagram/__init__.py
+networkdiagram/networkdiagram.py
+networkdiagram.egg-info/PKG-INFO
+networkdiagram.egg-info/SOURCES.txt
+networkdiagram.egg-info/dependency_links.txt
+networkdiagram.egg-info/requires.txt
+networkdiagram.egg-info/top_level.txt
