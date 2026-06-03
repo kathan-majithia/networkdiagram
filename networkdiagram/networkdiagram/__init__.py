@@ -1,3 +1,3 @@
-from .networkdiagram import CriticalPathMethod
+from .networkdiagram import CriticalPathMethod, PERTMethod, Node
 
-__all__ = ['CriticalPathMethod']
+__all__ = ['CriticalPathMethod', 'PERTMethod', 'Node']
