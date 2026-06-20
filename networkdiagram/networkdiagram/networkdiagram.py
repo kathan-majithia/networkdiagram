@@ -36,6 +36,11 @@ class Node:
         self.early_finish: float = 0
         self.latest_start: float = 0
         self.latest_finish: float = 0
+
+        self.total_float: float = 0
+        self.free_float: float = 0
+        self.independent_float: float = 0
+
         
     def add_successor(self, node: 'Node') -> None:
         """
@@ -390,11 +395,61 @@ class CriticalPathMethod:
             changed = False
             for node in self.nodes.values():
                 if node.successors:
-                    min_ls: float = min((self.nodes[s].latest_start for s in node.successors if s in self.nodes), default=node.latest_finish)
+                    min_ls: float = min(
+                        (self.nodes[s].latest_start for s in node.successors if s in self.nodes), 
+                        default=node.latest_finish
+                    )
+
                     if min_ls < node.latest_finish:
                         node.latest_finish = min_ls
                         node.latest_start = node.latest_finish - node.duration
                         changed = True
+        self.calculate_floats()
+
+    def calculate_floats(self) -> None:
+            """
+            Calculate Total Float, Free Float and Independent Float
+            """
+
+            for node in self.nodes.values():
+
+                # Total Float
+                node.total_float = node.latest_start - node.early_start
+
+                # Free Float
+                if node.successors:
+                    min_successor_es = min(
+                        self.nodes[s].early_start
+                        for s in node.successors
+                        if s in self.nodes
+                    )
+                    node.free_float = min_successor_es - node.early_finish
+                else:
+                    node.free_float = node.total_float
+
+                # Independent Float
+                if node.predecessors and node.successors:
+
+                    max_predecessor_lf = max(
+                        self.nodes[p].latest_finish
+                        for p in node.predecessors
+                        if p in self.nodes
+                    )
+
+                    min_successor_es = min(
+                        self.nodes[s].early_start
+                        for s in node.successors
+                        if s in self.nodes
+                    )
+
+                    node.independent_float = max(
+                        0,
+                        min_successor_es - max_predecessor_lf - node.duration
+                    )
+                else:
+                    node.independent_float = 0
+   
+
                 
     def get_edges(self) -> List[Tuple[str, str, Dict[str, float]]]:
         """
@@ -614,11 +669,21 @@ class CriticalPathMethod:
         print("Edges : ", self.edges)
         
         print("\nNode Properties:")
-        print(f"{'Node':<5} | {'ES':<3} | {'EF':<3} | {'LS':<3} | {'LF':<3}")
-        print("-" * 35)
+        print(f"{'Node':<5} | {'ES':<3} | {'EF':<3} | {'LS':<3} | {'LF':<3} | {'TF':<3} | {'FF':<3} | {'IF':<3}")
+        print("-" * 70)
+        
         for name, node in self.nodes.items():
-            print(f"{name:<5} | {node.early_start:<3} | {node.early_finish:<3} | {node.latest_start:<3} | {node.latest_finish:<3}")
-
+            print(
+                f"{name:<5} | "
+                f"{node.early_start:<3} | "
+                f"{node.early_finish:<3} | "
+                f"{node.latest_start:<3} | "
+                f"{node.latest_finish:<3} | "
+                f"{node.total_float:<3} | "
+                f"{node.free_float:<3} | "
+                f"{node.independent_float:<3}"
+            )
+        
 
 # Example usage
 if __name__ == "__main__":
