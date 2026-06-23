@@ -202,14 +202,18 @@ class CriticalPathMethod:
             self._validate_activity_name(act)
             self._validate_duration(dur, act)
             self._validate_duplicate(act)
+            if act in all_valid_activities:
+                raise ValueError(f"Activity '{act}' already exists. Duplicate names are not allowed.")
             all_valid_activities.add(act)
             
         # Validate predecessors exist (check before adding)
-        for pred_list in predecessors:
+        for act, pred_list in zip(activities, predecessors):
             if pred_list == '-' or pred_list == '':
                 continue
             preds = [p.strip() for p in pred_list.split(',') if p.strip()]
             for pred in preds:
+                if pred == act:
+                    raise ValueError(f"Self-referential dependency detected: '{act}' cannot be a predecessor of itself.")
                 # Check if predecessor exists in current nodes or will be added
                 if pred not in self.nodes and pred not in all_valid_activities:
                     raise ValueError(
@@ -255,6 +259,8 @@ class CriticalPathMethod:
         if predecessors and predecessors != '-':
             preds = [p.strip() for p in predecessors.split(',') if p.strip()]
             for p in preds:
+                if p == cur:
+                    raise ValueError(f"Self-referential dependency detected: '{cur}' cannot be a predecessor of itself.")
                 if p != 'O' and p not in self.nodes:
                     raise ValueError(
                         f"Predecessor '{p}' does not exist. "
