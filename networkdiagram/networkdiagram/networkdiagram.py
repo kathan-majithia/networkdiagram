@@ -43,6 +43,9 @@ class Node:
         self.early_finish: float = 0
         self.latest_start: float = 0
         self.latest_finish: float = 0
+        self.total_float: float = 0
+        self.free_float: float = 0
+        self.independent_float: float = 0
         
     def add_successor(self, node: 'Node') -> None:
         """
@@ -388,6 +391,60 @@ class CriticalPathMethod:
                         node.latest_finish = min_ls
                         node.latest_start = node.latest_finish - node.duration
                         changed = True
+
+    def calculate_floats(self) -> None:
+        """
+        Function to calculate Total Float, Free Float, and Independent Float for all nodes.
+        Must be called after forward_pass and backward_pass.
+        """
+        for node_name, node in self.nodes.items():
+            if node_name in ('O', 'T'):
+                continue
+                
+            # Total Float (TF) = LS - ES
+            node.total_float = node.latest_start - node.early_start
+            
+            # Free Float (FF) = Min(ES of successors) - EF of current
+            if node.successors:
+                min_es_successors = min(self.nodes[s].early_start for s in node.successors if s in self.nodes)
+                node.free_float = min_es_successors - node.early_finish
+            else:
+                node.free_float = 0
+                
+            # Independent Float (IF) = Max(0, Min(ES of successors) - Max(LF of predecessors) - duration)
+            if node.predecessors:
+                max_lf_predecessors = max(self.nodes[p].latest_finish for p in node.predecessors if p in self.nodes)
+            else:
+                max_lf_predecessors = 0
+                
+            if node.successors:
+                min_es_successors = min(self.nodes[s].early_start for s in node.successors if s in self.nodes)
+            else:
+                min_es_successors = node.early_finish
+                
+            ind_float = min_es_successors - max_lf_predecessors - node.duration
+            node.independent_float = max(0.0, ind_float)
+
+    def get_non_critical_floats(self) -> Dict[str, Dict[str, float]]:
+        """
+        Returns the Total Float, Free Float, and Independent Float for all non-critical activities.
+        
+        Returns:
+            Dict[str, Dict[str, float]]: Dictionary with activity names as keys and float metrics as values.
+        """
+        self.calculate_floats()
+        non_critical_floats = {}
+        # Make sure critical path is flattened if it contains list (multiple critical paths case)
+        crit_nodes = set(self.get_critical_path_activities())
+        
+        for node_name, node in self.nodes.items():
+            if node_name not in ('O', 'T') and node_name not in crit_nodes:
+                non_critical_floats[node_name] = {
+                    'Total Float': node.total_float,
+                    'Free Float': node.free_float,
+                    'Independent Float': node.independent_float
+                }
+        return non_critical_floats
                 
     def get_edges(self) -> List[Tuple[str, str, Dict[str, float]]]:
         """
