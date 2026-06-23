@@ -5,6 +5,25 @@ A lightweight Python library for creating Project Network Diagrams (CPM/PERT), c
 ![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+---
+
+
+## Table of Contents
+
+- [Features](#features)
+- [Publisher](#publisher)
+- [Dependencies](#dependencies)
+- [Installation](#dependencies)
+- [Quick Start Guide](#quick-start-guide)
+- [CPM Calculation Workflow](#cpm-calculation-workflow)
+- [Forward Pass Calculation](#forward-pass-calculation)
+- [Backward Pass Calculation](#backward-pass-calculation)
+- [Example Network Diagram](#example-network-diagram)
+- [Accessing Node Properties](#accessing-node-properties)
+- [Contributing](#contributing)
+- [ Contributors](#-contributors)
+- [License](#license)
+
 ## Features
 
 * **Easy Node Management**: Add activities with durations and string-based predecessor lists (e.g., `"A,B"`).
