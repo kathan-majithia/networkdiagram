@@ -27,10 +27,10 @@ To use the visualization features, you must have the following libraries install
 
 ## Installation
 
-You can install the package directly via pip:
+You can install the package directly via pip. To ensure the visualization features in the Quick Start guide work out-of-the-box, it is recommended to install the required dependencies alongside it:
 
 ```bash
-pip install networkdiagram
+pip install networkdiagram networkx matplotlib
 ```
 
 ## Quick Start Guide
