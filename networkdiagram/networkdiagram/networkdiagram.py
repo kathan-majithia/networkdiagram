@@ -783,16 +783,19 @@ if __name__ == "__main__":
     crash_costs     = [1000, 700, 900, 500, 1100]
     crash_durations = [4, 2, 3, 2, 2]
     
-    cpm.add_activities_relations(
-        activities, durations, predecessors,
-        normal_costs=normal_costs,
-        crash_costs=crash_costs,
-        crash_durations=crash_durations
-    )
-    
-    crash_schedule = cpm.crash_project(target_duration=13)
-    cpm.display_crash_schedule(crash_schedule)
-    # Display results
-    cpm.network_summary()
-    cpm.display_network()
-    cpm.generate_gantt_chart()
+    try:
+        cpm.add_activities_relations(
+            activities, durations, predecessors,
+            normal_costs=normal_costs,
+            crash_costs=crash_costs,
+            crash_durations=crash_durations
+        )
+        
+        crash_schedule = cpm.crash_project(target_duration=13)
+        cpm.display_crash_schedule(crash_schedule)
+        # Display results
+        cpm.network_summary()
+        cpm.display_network()
+        cpm.generate_gantt_chart()
+    except ValueError as e:
+        print(f"Error: {e}")
