@@ -122,6 +122,8 @@ class CriticalPathMethod:
             
     def _validate_duplicate(self, name: str) -> None:
         if name in self.nodes:
+            import sys
+            sys.tracebacklimit = 0
             raise ValueError(f"Activity '{name}' already exists. Duplicate names are not allowed.")
             
     def _detect_cycles(self) -> None:
@@ -132,6 +134,8 @@ class CriticalPathMethod:
         def dfs(node: str) -> None:
             if node in rec_stack:
                 cycle_nodes = list(rec_stack) + [node]
+                import sys
+                sys.tracebacklimit = 0
                 raise ValueError(f"Circular dependency detected: {' -> '.join(cycle_nodes)}")
             if node in visited:
                 return
@@ -203,6 +207,8 @@ class CriticalPathMethod:
             self._validate_duration(dur, act)
             self._validate_duplicate(act)
             if act in all_valid_activities:
+                import sys
+                sys.tracebacklimit = 0
                 raise ValueError(f"Activity '{act}' already exists. Duplicate names are not allowed.")
             all_valid_activities.add(act)
             
@@ -213,6 +219,8 @@ class CriticalPathMethod:
             preds = [p.strip() for p in pred_list.split(',') if p.strip()]
             for pred in preds:
                 if pred == act:
+                    import sys
+                    sys.tracebacklimit = 0
                     raise ValueError(f"Self-referential dependency detected: '{act}' cannot be a predecessor of itself.")
                 # Check if predecessor exists in current nodes or will be added
                 if pred not in self.nodes and pred not in all_valid_activities:
@@ -260,6 +268,8 @@ class CriticalPathMethod:
             preds = [p.strip() for p in predecessors.split(',') if p.strip()]
             for p in preds:
                 if p == cur:
+                    import sys
+                    sys.tracebacklimit = 0
                     raise ValueError(f"Self-referential dependency detected: '{cur}' cannot be a predecessor of itself.")
                 if p != 'O' and p not in self.nodes:
                     raise ValueError(

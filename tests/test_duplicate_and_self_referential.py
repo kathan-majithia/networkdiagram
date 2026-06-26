@@ -31,5 +31,16 @@ class TestDuplicateAndSelfReferential(unittest.TestCase):
             
         self.assertIn("Self-referential dependency detected: 'B' cannot be a predecessor of itself.", str(context.exception))
 
+    def test_duplicate_activity_across_calls(self):
+        self.cpm.add_activity('A', 5)
+        activities = ['B', 'A']
+        durations = [2, 3]
+        predecessors = ['-', '-']
+        
+        with self.assertRaises(ValueError) as context:
+            self.cpm.add_activities_relations(activities, durations, predecessors)
+            
+        self.assertIn("Activity 'A' already exists. Duplicate names are not allowed.", str(context.exception))
+
 if __name__ == '__main__':
     unittest.main()
