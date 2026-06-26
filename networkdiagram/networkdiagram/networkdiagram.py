@@ -43,6 +43,9 @@ class Node:
         self.early_finish: float = 0
         self.latest_start: float = 0
         self.latest_finish: float = 0
+        self.total_float: float = 0
+        self.free_float: float = 0
+        self.independent_float: float = 0
         
     def add_successor(self, node: 'Node') -> None:
         """
@@ -388,6 +391,60 @@ class CriticalPathMethod:
                         node.latest_finish = min_ls
                         node.latest_start = node.latest_finish - node.duration
                         changed = True
+
+    def calculate_floats(self) -> None:
+        """
+        Function to calculate Total Float, Free Float, and Independent Float for all nodes.
+        Must be called after forward_pass and backward_pass.
+        """
+        for node_name, node in self.nodes.items():
+            if node_name in ('O', 'T'):
+                continue
+                
+            # Total Float (TF) = LS - ES
+            node.total_float = node.latest_start - node.early_start
+            
+            # Free Float (FF) = Min(ES of successors) - EF of current
+            if node.successors:
+                min_es_successors = min(self.nodes[s].early_start for s in node.successors if s in self.nodes)
+                node.free_float = min_es_successors - node.early_finish
+            else:
+                node.free_float = 0
+                
+            # Independent Float (IF) = Max(0, Min(ES of successors) - Max(LF of predecessors) - duration)
+            if node.predecessors:
+                max_lf_predecessors = max(self.nodes[p].latest_finish for p in node.predecessors if p in self.nodes)
+            else:
+                max_lf_predecessors = 0
+                
+            if node.successors:
+                min_es_successors = min(self.nodes[s].early_start for s in node.successors if s in self.nodes)
+            else:
+                min_es_successors = node.early_finish
+                
+            ind_float = min_es_successors - max_lf_predecessors - node.duration
+            node.independent_float = max(0.0, ind_float)
+
+    def get_non_critical_floats(self) -> Dict[str, Dict[str, float]]:
+        """
+        Returns the Total Float, Free Float, and Independent Float for all non-critical activities.
+        
+        Returns:
+            Dict[str, Dict[str, float]]: Dictionary with activity names as keys and float metrics as values.
+        """
+        self.calculate_floats()
+        non_critical_floats = {}
+        # Make sure critical path is flattened if it contains list (multiple critical paths case)
+        crit_nodes = set(self.get_critical_path_activities())
+        
+        for node_name, node in self.nodes.items():
+            if node_name not in ('O', 'T') and node_name not in crit_nodes:
+                non_critical_floats[node_name] = {
+                    'Total Float': node.total_float,
+                    'Free Float': node.free_float,
+                    'Independent Float': node.independent_float
+                }
+        return non_critical_floats
                 
     def get_edges(self) -> List[Tuple[str, str, Dict[str, float]]]:
         """
@@ -590,6 +647,7 @@ class CriticalPathMethod:
         Function to generate entire Network Summary including number of nodes, Activities, 
         Probable paths, Critical Path, Total Project Duration and Edges
         """
+        self.calculate_floats()
         print("\n\n---------------Network Summary-----------------\n\n")
         print("Total number of Activities/Nodes : ", len(self.nodes))
         print("Nodes : ", end="")
@@ -600,17 +658,17 @@ class CriticalPathMethod:
         for p in self.probable_paths:
             print(p)
         print("Critical Path : ", self.critical_path)
-        print("Total project duration : ", self.total_project_duration)
+        print(f"Total project duration : {self.total_project_duration:.2f}")
         print("Duration unit :", self.duration_unit)
         
         self.get_edges()
         print("Edges : ", self.edges)
         
         print("\nNode Properties:")
-        print(f"{'Node':<5} | {'ES':<3} | {'EF':<3} | {'LS':<3} | {'LF':<3}")
-        print("-" * 35)
+        print(f"{'Node':<5} | {'ES':<6} | {'EF':<6} | {'LS':<6} | {'LF':<6} | {'TF':<6} | {'FF':<6} | {'IF':<6}")
+        print("-" * 75)
         for name, node in self.nodes.items():
-            print(f"{name:<5} | {node.early_start:<3} | {node.early_finish:<3} | {node.latest_start:<3} | {node.latest_finish:<3}")
+            print(f"{name:<5} | {node.early_start:<6.2f} | {node.early_finish:<6.2f} | {node.latest_start:<6.2f} | {node.latest_finish:<6.2f} | {node.total_float:<6.2f} | {node.free_float:<6.2f} | {node.independent_float:<6.2f}")
 
     def get_critical_path_activities(self):
         """
