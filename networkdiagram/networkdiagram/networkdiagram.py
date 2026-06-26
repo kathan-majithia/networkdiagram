@@ -647,6 +647,7 @@ class CriticalPathMethod:
         Function to generate entire Network Summary including number of nodes, Activities, 
         Probable paths, Critical Path, Total Project Duration and Edges
         """
+        self.calculate_floats()
         print("\n\n---------------Network Summary-----------------\n\n")
         print("Total number of Activities/Nodes : ", len(self.nodes))
         print("Nodes : ", end="")
@@ -657,17 +658,17 @@ class CriticalPathMethod:
         for p in self.probable_paths:
             print(p)
         print("Critical Path : ", self.critical_path)
-        print("Total project duration : ", self.total_project_duration)
+        print(f"Total project duration : {self.total_project_duration:.2f}")
         print("Duration unit :", self.duration_unit)
         
         self.get_edges()
         print("Edges : ", self.edges)
         
         print("\nNode Properties:")
-        print(f"{'Node':<5} | {'ES':<3} | {'EF':<3} | {'LS':<3} | {'LF':<3} | {'Float':<5}")
-        print("-" * 43)
+        print(f"{'Node':<5} | {'ES':<6} | {'EF':<6} | {'LS':<6} | {'LF':<6} | {'TF':<6} | {'FF':<6} | {'IF':<6}")
+        print("-" * 75)
         for name, node in self.nodes.items():
-            print(f"{name:<5} | {node.early_start:<3} | {node.early_finish:<3} | {node.latest_start:<3} | {node.latest_finish:<3} | {node.total_float:<5}")
+            print(f"{name:<5} | {node.early_start:<6.2f} | {node.early_finish:<6.2f} | {node.latest_start:<6.2f} | {node.latest_finish:<6.2f} | {node.total_float:<6.2f} | {node.free_float:<6.2f} | {node.independent_float:<6.2f}")
 
     def get_critical_path_activities(self):
         """
