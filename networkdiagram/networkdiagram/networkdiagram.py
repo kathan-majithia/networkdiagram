@@ -664,10 +664,10 @@ class CriticalPathMethod:
         print("Edges : ", self.edges)
         
         print("\nNode Properties:")
-        print(f"{'Node':<5} | {'ES':<3} | {'EF':<3} | {'LS':<3} | {'LF':<3}")
-        print("-" * 35)
+        print(f"{'Node':<5} | {'ES':<3} | {'EF':<3} | {'LS':<3} | {'LF':<3} | {'Float':<5}")
+        print("-" * 43)
         for name, node in self.nodes.items():
-            print(f"{name:<5} | {node.early_start:<3} | {node.early_finish:<3} | {node.latest_start:<3} | {node.latest_finish:<3}")
+            print(f"{name:<5} | {node.early_start:<3} | {node.early_finish:<3} | {node.latest_start:<3} | {node.latest_finish:<3} | {node.total_float:<5}")
 
     def get_critical_path_activities(self):
         """
