@@ -6,7 +6,8 @@ from typing import Dict, List, Optional, Tuple, Union, Any, Set
 from collections import deque
 import networkx as nx
 import matplotlib.pyplot as plt
-
+import matplotlib.backends.backend_pdf as pdf_backend
+import os
 
 class Node:
     """Represents an activity node in the network diagram."""
@@ -451,15 +452,14 @@ class CriticalPathMethod:
 
         return pos
     
-    def display_network(self) -> None:
+    def _build_network_figure(self) -> plt.Figure: #only builds, returns fig
         """
-        Function to Visualize the Network Diagram.
-        Uses Networkx and Matplotlib for plotting.
+        Creates and returns the network diagram Figure without showing it.
         """
         self.get_edges()
         
         G = nx.Graph()
-        plt.figure(figsize=(10, 4))
+        fig, ax = plt.subplots(figsize=(10, 4)) #explicit fig + axes objects
         
         # Add edges without duration for graph creation
         edges_without_duration: List[Tuple[str, str]] = [(e[0], e[1]) for e in self.edges]
@@ -489,7 +489,7 @@ class CriticalPathMethod:
             else:
                 labels[node] = str(node)
         
-        nx.draw(G, pos, labels=labels, with_labels=True, node_size=2500, font_size=8, 
+        nx.draw(G, pos, ax=ax, labels=labels, with_labels=True, node_size=2500, font_size=8, 
                 edge_color=edges_colors, arrows=True, arrowstyle='-|>', arrowsize=20)
         
         # Create edge label dictionary
@@ -497,15 +497,15 @@ class CriticalPathMethod:
         for edge in self.edges:
             edge_durations[(edge[0], edge[1])] = str(edge[2]['duration'])
         
-        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_durations)
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_durations, ax=ax)
 
-        plt.title("Network diagram with critical Path")
-        plt.show()
+        ax.set_title("Network diagram with critical Path")
+        fig.tight_layout()
+        return fig
 
-    def generate_gantt_chart(self, show: bool = True) -> None:
+    def _build_gantt_figure(self) -> plt.Figure:
         """
-        Function to Visualize the Project Schedule as a Gantt Chart.
-        Uses Matplotlib for plotting.
+        Function to create and return the Gantt chart Figure without showing it.
         
         Args:
             show (bool): If True, displays the plot using plt.show(). Defaults to True.
@@ -579,11 +579,114 @@ class CriticalPathMethod:
         if self.total_project_duration > 0:
             ax.set_xlim(0, self.total_project_duration * 1.05)
             
-        plt.tight_layout()
-        
+        fig.tight_layout()
+        return fig
+
+
+    def display_network(self) -> None:
+        """Visualize the Network Diagram interactively."""
+        fig = self._build_network_figure()
+        plt.show()
+        plt.close(fig)
+
+    def display_gantt_chart(self, show:bool = True) -> None:
+        """Visualize the Project Schedule as a Gantt Chart."""
+        fig = self._build_gantt_figure()
         if show:
             plt.show()
+        plt.close(fig)
 
+    def export(self, path:str, chart: str = "both", dpi: int = 150) -> None:
+        """
+        Export diagram(s) to a file. Supported formats: PNG, SVG, PDF.
+
+        For PNG and SVG the behaviour depends on the *chart* argument:
+            - ``"network"`` -> saves the network diagram only.
+            - ``"gantt"`` -> saves the Gantt chart only.
+            - ``"both"`` -> two files are created. The second file gets 
+                            ``_gantt`` inserted before the extension
+                            (e.g. ``diagram.png`` and ``diagram_gantt.png``).
+        For PDF with ``chart="both"`` both diagrams are placed on separate
+        pages in a single PDF file.
+
+        Args:
+            path(str):
+                Destination file path, e.g. ``"output/diagram.png"``.
+                The directory is created automatically if it does not exist.
+            chart(str, optional):
+                Which chart(s) to export: ``"network"``, ``"gantt"``, or
+                ``"both"``. Defaults to ``"both"``.
+            dpi (int, optional):
+                Resolution for raster formats (PNG). Ignored for SVG/PDF.
+                Defaults to 150.
+        Raises:
+            ValueError: If the file extension is not png, svg, or pdf.
+            ValueError: If *chart* is not one of the accepted values.
+        
+        Examples::
+            cpm.export("diagram.png")      #both charts, PNG
+            cpm.export("report.pdf")       #both charts, one PDF
+            cpm.export("network.svg", chart = "network")
+            cpm.export("gantt.png", chart="gantt", dpi=300)
+        
+        """
+        chart = chart.lower().strip()
+        if chart not in {"network", "gantt", "both"}:
+            raise ValueError(
+                f"Invalid chart value '{chart}'."
+                "Choose from 'network', 'gantt', or 'both'."
+            )
+        root, ext = os.path.splitext(path)
+        ext = ext.lower()
+        if ext not in {".png", ".svg", ".pdf"}:
+            raise ValueError(
+                f"Unsupported file extension '{ext}. "
+                "Use .png, .svg, or .pdf."
+            )
+        #Ensure analysis is up to date
+        if self.total_project_duration == -1 or not self.critical_path:
+            self.forward_pass()
+            self.backward_pass()
+            if not self.probable_paths:
+                self.find_probable_paths()
+            self.find_critical_path()
+        #Create output directory if needed
+        out_dir = os.path.dirname(path)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        #Build requested figures
+        need_network = chart in {"network", "both"}
+        need_gantt = chart in {"gantt", "both"}
+
+        net_fig = self._build_network_figure() if need_network else None
+        gant_fig = self._build_gantt_figure() if need_gantt else None
+    
+        #Save
+        save_kwargs = {"bbox_inches": "tight"}
+        if ext == ".png":
+            save_kwargs["dpi"] = dpi
+        
+        if ext == ".pdf":
+            #All charts go into one multi-page PDF
+            with pdf_backend.PdfPages(path) as pp:
+                if net_fig:
+                    pp.savefig(net_fig, **save_kwargs)
+                if gant_fig:
+                    pp.savefig(gant_fig, **save_kwargs)
+            print(f"Exported PDF -> {path}")
+        else:
+            #single chart, single file
+            if net_fig:
+               net_fig.savefig(path, **save_kwargs)
+               print(f"Exported network -> {path}")
+            if gant_fig:
+               gantt_path = f"{root}_gantt{ext}" if net_fig else path
+               gant_fig.savefig(path, **save_kwargs)
+               print(f"Exported gantt -> {gantt_path}")
+
+        #Clean up figures
+        for fig in filter(None, [net_fig, gant_fig]):
+            plt.close(fig)
 
     def network_summary(self) -> None:
         """
@@ -788,5 +891,9 @@ if __name__ == "__main__":
     cpm.display_crash_schedule(crash_schedule)
     # Display results
     cpm.network_summary()
-    cpm.display_network()
-    cpm.generate_gantt_chart()
+
+    cpm.export("diagram.png")
+    cpm.export("report.pdf")
+    
+    
+
