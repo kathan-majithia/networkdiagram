@@ -452,14 +452,14 @@ class CriticalPathMethod:
 
         return pos
     
-    def _build_network_figure(self) -> plt.Figure:
+    def _build_network_figure(self) -> plt.Figure: #only builds, returns fig
         """
         Creates and returns the network diagram Figure without showing it.
         """
         self.get_edges()
         
         G = nx.Graph()
-        fig, ax = plt.subplots(figsize=(10, 4))
+        fig, ax = plt.subplots(figsize=(10, 4)) #explicit fig + axes objects
         
         # Add edges without duration for graph creation
         edges_without_duration: List[Tuple[str, str]] = [(e[0], e[1]) for e in self.edges]
@@ -674,17 +674,15 @@ class CriticalPathMethod:
                 if gant_fig:
                     pp.savefig(gant_fig, **save_kwargs)
             print(f"Exported PDF -> {path}")
-        elif chart =="both":
-            gantt_path = f"{root}_gantt{ext}"
-            net_fig.savefig(path, **save_kwargs)
-            gant_fig.savefig(gantt_path, **save_kwargs)
-            print(f" Exported network diagram -> {path}")
-            print(f" Exported Gantt chart -> {gantt_path}")
         else:
             #single chart, single file
-            fig = net_fig if need_network else gant_fig
-            fig.savefig(path, **save_kwargs)
-            print(f"Exported {chart} chart -> {path}")
+            if net_fig:
+               net_fig.savefig(path, **save_kwargs)
+               print(f"Exported network -> {path}")
+            if gant_fig:
+               gantt_path = f"{root}_gantt{ext}" if net_fig else path
+               gant_fig.savefig(path, **save_kwargs)
+               print(f"Exported gantt -> {gantt_path}")
 
         #Clean up figures
         for fig in filter(None, [net_fig, gant_fig]):
@@ -894,8 +892,8 @@ if __name__ == "__main__":
     # Display results
     cpm.network_summary()
 
-    cpm.export("output/diagram.png")
-    cpm.export("output/report.pdf")
-    cpm.export("output/network.svg", chart="network")
-    cpm.export("output/gantt.png", chart="gantt", dpi= 300)
+    cpm.export("diagram.png")
+    cpm.export("report.pdf")
+    
+    
 
