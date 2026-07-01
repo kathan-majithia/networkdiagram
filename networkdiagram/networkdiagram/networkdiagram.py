@@ -11,13 +11,16 @@ import matplotlib.pyplot as plt
 class Node:
     """Represents an activity node in the network diagram."""
     
-    def __init__(self, name: str, duration: float = 0) -> None:
+    def __init__(self, name: str, duration: float = 0, normal_cost: float = 0, crash_cost: float = 0, crash_duration: float = None) -> None:
         """
         Constructor for declaring a new Node or Activity
 
         Args:
             name (str): Name of the activity usually single character
-            duration (float, optional): Duration of the activity. Defaults to 0.
+            duration (float, optional): Normal duration of the activity. Defaults to 0.
+            normal_cost (float): Cost at normal duration. Defaults to 0.
+            crash_cost (float): Cost at minimum duration. Defaults to 0.
+            crash_duration (float): Minimum possible duration. Defaults to normal duration.
             
         Raises:
             ValueError: If name is empty or duration is negative
@@ -30,8 +33,12 @@ class Node:
             
         self.name: str = name
         self.duration: float = duration
+        self.normal_duration: float = duration
+        self.crash_duration: float = crash_duration if crash_duration is not None else duration
+        self.normal_cost: float = normal_cost
+        self.crash_cost: float = crash_cost
         self.predecessors: List[str] = []
-        self.successors: List[str] = []  # Tells which activities can start once the current activity is finished
+        self.successors: List[str] = []
         self.early_start: float = 0
         self.early_finish: float = 0
         self.latest_start: float = 0
@@ -60,6 +67,29 @@ class Node:
             str: contains information like name, duration and successors.
         """
         return f"Name : {self.name}, Duration : {self.duration}, Successor : {self.successors}"
+    
+    def cost_slope(self):
+        """
+        Cost Slope = (Crash Cost - Normal Cost) / (Normal Duration - Crash Duration)
+        Tells how much extra it costs to reduce duration by 1 unit.
+        Returns infinity if activity cannot be crashed further.
+
+        Returns:
+            float: Cost per unit time reduction
+        """
+        if self.normal_duration <= self.crash_duration:
+            return float('inf')
+        return (self.crash_cost - self.normal_cost) / (self.normal_duration - self.crash_duration)
+
+    def can_be_crashed(self):
+        """
+        Checks if this activity can still be crashed.
+        Activity cannot go below its crash_duration.
+
+        Returns:
+            bool: True if current duration > crash_duration
+        """
+        return self.duration > self.crash_duration
         
     def __repr__(self) -> str:
         """String representation of the node."""
@@ -83,31 +113,12 @@ class CriticalPathMethod:
         self.edges: List[Tuple[str, str, Dict[str, float]]] = []  # Tuple (from,to,duration)
         
     def _validate_activity_name(self, name: str) -> None:
-        """
-        Validate activity name.
-        
-        Args:
-            name: Activity name to validate
-            
-        Raises:
-            ValueError: If name is empty or not a string
-        """
         if not name or not isinstance(name, str):
             raise ValueError(f"Activity name must be a non-empty string. Got: {name}")
         if name.strip() == '':
             raise ValueError("Activity name cannot be empty or whitespace only")
             
     def _validate_duration(self, duration: float, activity_name: str = "") -> None:
-        """
-        Validate activity duration.
-        
-        Args:
-            duration: Duration to validate
-            activity_name: Name of the activity (for error message)
-            
-        Raises:
-            ValueError: If duration is negative
-        """
         if duration < 0:
             msg = f"Activity duration cannot be negative. Got: {duration}"
             if activity_name:
@@ -115,83 +126,64 @@ class CriticalPathMethod:
             raise ValueError(msg)
             
     def _validate_duplicate(self, name: str) -> None:
-        """
-        Check for duplicate activity names.
-        
-        Args:
-            name: Activity name to check
-            
-        Raises:
-            ValueError: If activity already exists
-        """
         if name in self.nodes:
             raise ValueError(f"Activity '{name}' already exists. Duplicate names are not allowed.")
             
     def _detect_cycles(self) -> None:
-        """
-        Detect circular dependencies in the network.
-        
-        Raises:
-            ValueError: If a circular dependency is detected
-        """
         if not self.nodes:
             return
-            
         visited = set()
         rec_stack = set()
-        
         def dfs(node: str) -> None:
             if node in rec_stack:
                 cycle_nodes = list(rec_stack) + [node]
-                raise ValueError(
-                    f"Circular dependency detected: {' -> '.join(cycle_nodes)}"
-                )
+                raise ValueError(f"Circular dependency detected: {' -> '.join(cycle_nodes)}")
             if node in visited:
                 return
-            
             visited.add(node)
             rec_stack.add(node)
-            
-            # Check all successors of this node
             if node in self.nodes:
                 for successor in self.nodes[node].successors:
                     dfs(successor)
-            
             rec_stack.remove(node)
-        
-        # Run DFS from each node
         for node in self.nodes:
             if node not in visited:
                 dfs(node)
         
-    def add_activity(self, name: str, duration: float) -> None:
+    def add_activity(self, name: str, duration: float, normal_cost: float = 0, crash_cost: float = 0, crash_duration: float = None) -> None:
         """
-        Function to add a single activity with validation.
+        Function to add a single activity with optional crashing parameters
 
         Args:
             name (str): Name or alias of the activity
-            duration (float): Duration of the activity
+            duration (float): Normal duration of the activity
+            normal_cost (float): Cost at normal duration. Defaults to 0.
+            crash_cost (float): Cost at crash duration. Defaults to 0.
+            crash_duration (float): Minimum possible duration. Defaults to normal duration.
             
         Raises:
             ValueError: If name is invalid, duration is negative, or activity already exists
         """
-        # Validate inputs
         self._validate_activity_name(name)
         self._validate_duration(duration, name)
         self._validate_duplicate(name)
         
-        # Add the activity
-        if name not in self.nodes:
-            self.nodes[name] = Node(name, duration)
+        if crash_duration is None:
+            crash_duration = duration
+        self.nodes[name] = Node(name, duration, normal_cost, crash_cost, crash_duration)
             
-    def add_activities_relations(self, activities: List[str], durations: List[float], predecessors: List[str]) -> None:
+    def add_activities_relations(self, activities: List[str], durations: List[float], predecessors: List[str],
+                                  normal_costs: List[float] = None, crash_costs: List[float] = None, crash_durations: List[float] = None) -> None:
         """
-        Function to add multiple activities with its relation and validation.
+        Function to add multiple activities with their relations and optional crashing parameters
 
         Args:
-            activities (list): List of all activities
+            activities (list): List of all activity names
             durations (list): List of durations
             predecessors (list): List of predecessors
+            normal_costs (list, optional): Normal costs per activity. Defaults to None.
+            crash_costs (list, optional): Crash costs per activity. Defaults to None.
+            crash_durations (list, optional): Crash durations per activity. Defaults to None.
             
         Raises:
             ValueError: If lists are empty, have mismatched lengths, or contain invalid data
@@ -238,13 +230,14 @@ class CriticalPathMethod:
             )
             
         # Now add all activities and relations
-        durations_with_origin = durations.copy()
-        durations_with_origin.append(0)  # For the Terminal Node
+        durations_with_origin = [0] + list(durations) + [0]
         
         for i in range(len(activities)):
-            # Add activity (validation already done, so skip duplicate check)
-            if activities[i] not in self.nodes:
-                self.nodes[activities[i]] = Node(activities[i], durations[i])
+            nc = normal_costs[i] if normal_costs else 0
+            cc = crash_costs[i] if crash_costs else 0
+            cd = crash_durations[i] if crash_durations else None
+            self.add_activity(activities[i], durations_with_origin[i + 1],
+                              normal_cost=nc, crash_cost=cc, crash_duration=cd)
             self.add_relation(activities[i], predecessors[i])
             
     def add_relation(self, cur: str, predecessors: str) -> None:
@@ -684,28 +677,182 @@ class CriticalPathMethod:
                 f"{node.independent_float:<3}"
             )
         
+            
+
+    def get_critical_path_activities(self):
+        """
+        Returns activity names on the critical path, excluding origin (O) and terminal (T).
+        Handles both single critical path and multiple critical paths of equal duration.
+
+        Returns:
+            list: Activity names eligible for crashing
+        """
+        if not self.critical_path:
+            return []
+
+        activities = set()
+
+        for item in self.critical_path:
+            if isinstance(item, list):
+                for act in item:
+                    if isinstance(act, str) and act in self.nodes and act not in ('O', 'T'):
+                        activities.add(act)
+            elif isinstance(item, str):
+                if item in self.nodes and item not in ('O', 'T'):
+                    activities.add(item)
+
+        return list(activities)
+
+    def crash_project(self, target_duration):
+        """
+        Implements Time-Cost Trade-off (Crashing) Algorithm.
+
+        Steps:
+            1. Find critical path
+            2. Find critical path activity with minimum cost slope
+            3. Crash it by 1 time unit
+            4. Recalculate critical path
+            5. Repeat until target duration reached or no more crashing possible
+
+        Args:
+            target_duration (int): Desired project duration after crashing
+
+        Returns:
+            list: Crashing schedule — one dict per iteration
+        """
+        self.forward_pass()
+        self.backward_pass()
+        self.find_probable_paths()
+        self.find_critical_path()
+
+        crash_schedule = []
+        total_extra_cost = 0
+        iteration = 0
+
+        print(f"\n{'='*60}")
+        print(f"  TIME-COST TRADE-OFF (CRASHING) ANALYSIS")
+        print(f"{'='*60}")
+        print(f"  Initial Project Duration : {self.total_project_duration} days")
+        print(f"  Target Duration          : {target_duration} days")
+        print(f"{'='*60}\n")
+
+        while self.total_project_duration > target_duration:
+
+            critical_activities = self.get_critical_path_activities()
+            crashable = [
+                act for act in critical_activities
+                if self.nodes[act].can_be_crashed()
+            ]
+
+            if not crashable:
+                print("  No more activities can be crashed. Minimum duration reached.")
+                break
+
+            best_activity = min(crashable, key=lambda act: self.nodes[act].cost_slope())
+            node = self.nodes[best_activity]
+            slope = node.cost_slope()
+
+            node.duration -= 1
+            total_extra_cost += slope
+            iteration += 1
+
+            self.probable_paths = []
+            self.total_project_duration = -1
+            self.critical_path = []
+            self.forward_pass()
+            self.backward_pass()
+            self.find_probable_paths()
+            self.find_critical_path()
+
+            step = {
+                'iteration': iteration,
+                'activity_crashed': best_activity,
+                'new_duration': node.duration,
+                'cost_slope': round(slope, 2),
+                'total_extra_cost': round(total_extra_cost, 2),
+                'project_duration': self.total_project_duration,
+                'critical_path': list(self.critical_path)
+            }
+            crash_schedule.append(step)
+
+            print(f"  Iteration {iteration}:")
+            print(f"    Activity Crashed     : {best_activity}")
+            print(f"    New Duration         : {node.duration} days")
+            print(f"    Cost Slope           : {round(slope, 2)}")
+            print(f"    Total Extra Cost     : {round(total_extra_cost, 2)}")
+            print(f"    New Project Duration : {self.total_project_duration} days")
+            print(f"    Critical Path        : {' -> '.join(str(x) for x in self.critical_path)}")
+            print()
+
+        print(f"{'='*60}")
+        print(f"  CRASHING COMPLETE")
+        print(f"  Final Duration    : {self.total_project_duration} days")
+        print(f"  Total Extra Cost  : {round(total_extra_cost, 2)}")
+        print(f"{'='*60}\n")
+
+        return crash_schedule
+
+    def display_crash_schedule(self, crash_schedule):
+        """
+        Displays crashing schedule as a formatted table with aligned columns.
+
+        Args:
+            crash_schedule (list): Output from crash_project()
+        """
+        if not crash_schedule:
+            print("No crashing was performed.")
+            return
+
+        col1, col2, col3, col4, col5, col6 = 6, 12, 10, 12, 12, 10
+        total_width = col1 + col2 + col3 + col4 + col5 + col6 + 5
+
+        print(f"\n{'='*total_width}")
+        print(f"  CRASHING SCHEDULE")
+        print(f"{'='*total_width}")
+        print(
+            f"  {'Iter':<{col1}}"
+            f"{'Activity':<{col2}}"
+            f"{'New Dur':<{col3}}"
+            f"{'Cost Slope':<{col4}}"
+            f"{'Total Cost':<{col5}}"
+            f"{'Proj Dur':<{col6}}"
+        )
+        print(f"  {'-'*total_width}")
+
+        for step in crash_schedule:
+            print(
+                f"  {step['iteration']:<{col1}}"
+                f"{step['activity_crashed']:<{col2}}"
+                f"{step['new_duration']:<{col3}}"
+                f"{step['cost_slope']:<{col4}}"
+                f"{step['total_extra_cost']:<{col5}}"
+                f"{step['project_duration']:<{col6}}"
+            )
+        print(f"{'='*total_width}\n")
+
 
 # Example usage
 if __name__ == "__main__":
-    # Create a sample network
     cpm = CriticalPathMethod()
     
-    # Add origin node
     cpm.add_activity('O', 0)
     
-    # Add activities with relations
-    activities = ['A', 'B', 'C', 'D', 'E']
-    durations = [3, 4, 2, 5, 2]
-    predecessors = ['-', 'A', 'A', 'B,C', 'C']
+    activities      = ['A', 'B', 'C', 'D', 'E']
+    durations       = [6, 4, 5, 3, 4]
+    predecessors    = ['-', '-', 'A', 'B', 'C']
+    normal_costs    = [800, 500, 600, 400, 700]
+    crash_costs     = [1000, 700, 900, 500, 1100]
+    crash_durations = [4, 2, 3, 2, 2]
     
-    cpm.add_activities_relations(activities, durations, predecessors)
+    cpm.add_activities_relations(
+        activities, durations, predecessors,
+        normal_costs=normal_costs,
+        crash_costs=crash_costs,
+        crash_durations=crash_durations
+    )
     
-    # Calculate paths
-    cpm.find_probable_paths()
-    cpm.find_critical_path()
-    cpm.forward_pass()
-    cpm.backward_pass()
-    
+    crash_schedule = cpm.crash_project(target_duration=13)
+    cpm.display_crash_schedule(crash_schedule)
     # Display results
     cpm.network_summary()
     cpm.display_network()
