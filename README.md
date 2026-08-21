@@ -5,6 +5,27 @@ A lightweight Python library for creating Project Network Diagrams (CPM/PERT), c
 ![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+## Table of Contents
+
+- [Features](#features)
+- [Publisher](#publisher)
+- [Dependencies](#dependencies)
+- [Installation](#installation)
+- [Quick Start Guide](#quick-start-guide)
+- [CPM Calculation Workflow](#cpm-calculation-workflow)
+- [Forward Pass Calculation](#forward-pass-calculation)
+- [Backward Pass Calculation](#backward-pass-calculation)
+- [Example Network Diagram](#example-network-diagram)
+- [Network Summary](#network-summary)
+- [Practical Examples](#practical-examples)
+  - [Example 1: Simple Project Network](#example-1-simple-project-network)
+  - [Example 2: Intermediate Project Network](#example-2-intermediate-project-network)
+  - [Example 3: Complex Project Network](#example-3-complex-project-network)
+- [Accessing Node Properties](#accessing-node-properties)
+- [Contributing](#contributing)
+- [Contributors](#contributors)
+- [License](#license)
+
 ## Features
 
 * **Easy Node Management**: Add activities with durations and string-based predecessor lists (e.g., `"A,B"`).
@@ -196,7 +217,7 @@ We welcome contributions!
 3. PRs must be submitted against the `main` branch.
 4. If modifying mathematical logic, please ensure you verify your algorithms against known project networks.
 
-## 👥 Contributors
+## Contributors
 
 Thanks to all contributors ❤️
 
