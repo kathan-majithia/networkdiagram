@@ -122,6 +122,8 @@ class CriticalPathMethod:
             
     def _validate_duplicate(self, name: str) -> None:
         if name in self.nodes:
+            import sys
+            sys.tracebacklimit = 0
             raise ValueError(f"Activity '{name}' already exists. Duplicate names are not allowed.")
             
     def _detect_cycles(self) -> None:
@@ -132,6 +134,8 @@ class CriticalPathMethod:
         def dfs(node: str) -> None:
             if node in rec_stack:
                 cycle_nodes = list(rec_stack) + [node]
+                import sys
+                sys.tracebacklimit = 0
                 raise ValueError(f"Circular dependency detected: {' -> '.join(cycle_nodes)}")
             if node in visited:
                 return
@@ -202,14 +206,22 @@ class CriticalPathMethod:
             self._validate_activity_name(act)
             self._validate_duration(dur, act)
             self._validate_duplicate(act)
+            if act in all_valid_activities:
+                import sys
+                sys.tracebacklimit = 0
+                raise ValueError(f"Activity '{act}' already exists. Duplicate names are not allowed.")
             all_valid_activities.add(act)
             
         # Validate predecessors exist (check before adding)
-        for pred_list in predecessors:
+        for act, pred_list in zip(activities, predecessors):
             if pred_list == '-' or pred_list == '':
                 continue
             preds = [p.strip() for p in pred_list.split(',') if p.strip()]
             for pred in preds:
+                if pred == act:
+                    import sys
+                    sys.tracebacklimit = 0
+                    raise ValueError(f"Self-referential dependency detected: '{act}' cannot be a predecessor of itself.")
                 # Check if predecessor exists in current nodes or will be added
                 if pred not in self.nodes and pred not in all_valid_activities:
                     raise ValueError(
@@ -255,6 +267,10 @@ class CriticalPathMethod:
         if predecessors and predecessors != '-':
             preds = [p.strip() for p in predecessors.split(',') if p.strip()]
             for p in preds:
+                if p == cur:
+                    import sys
+                    sys.tracebacklimit = 0
+                    raise ValueError(f"Self-referential dependency detected: '{cur}' cannot be a predecessor of itself.")
                 if p != 'O' and p not in self.nodes:
                     raise ValueError(
                         f"Predecessor '{p}' does not exist. "
@@ -777,16 +793,19 @@ if __name__ == "__main__":
     crash_costs     = [1000, 700, 900, 500, 1100]
     crash_durations = [4, 2, 3, 2, 2]
     
-    cpm.add_activities_relations(
-        activities, durations, predecessors,
-        normal_costs=normal_costs,
-        crash_costs=crash_costs,
-        crash_durations=crash_durations
-    )
-    
-    crash_schedule = cpm.crash_project(target_duration=13)
-    cpm.display_crash_schedule(crash_schedule)
-    # Display results
-    cpm.network_summary()
-    cpm.display_network()
-    cpm.generate_gantt_chart()
+    try:
+        cpm.add_activities_relations(
+            activities, durations, predecessors,
+            normal_costs=normal_costs,
+            crash_costs=crash_costs,
+            crash_durations=crash_durations
+        )
+        
+        crash_schedule = cpm.crash_project(target_duration=13)
+        cpm.display_crash_schedule(crash_schedule)
+        # Display results
+        cpm.network_summary()
+        cpm.display_network()
+        cpm.generate_gantt_chart()
+    except ValueError as e:
+        print(f"Error: {e}")
